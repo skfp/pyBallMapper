@@ -433,6 +433,7 @@ class BallMapper:
         order=None,
         method=None,
         verbose=False,
+        column_names=None,
         **kwargs
     ):
         """Create a BallMapper graph from vector array or distance matrix.
@@ -472,6 +473,9 @@ class BallMapper:
         verbose: bool or string, default=False
             Enable verbose output. Set it to 'tqdm' to show a tqdm progressbar.
 
+        column_names: list of strings, default=None
+            names of the columns in X, used for labeling purposes.
+
         Attributes
         ------------
 
@@ -482,6 +486,10 @@ class BallMapper:
 
         eps: float
             The input radius of the balls.
+
+        landmarks_data: {array-like, sparse matrix} of shape (n_samples, n_features) \
+                or (n_samples, n_samples)
+            landmark points selected from the input data X
 
         points_covered_by_landmarks: dict
             keys: landmarks ids \
@@ -494,6 +502,11 @@ class BallMapper:
         """
 
         self.eps = eps
+
+        if column_names is not None:
+            self.column_names = column_names
+        else:
+            self.column_names = ["x{}".format(i) for i in range(X.shape[1])]
 
         if not isinstance(X, np.ndarray):
             try:
@@ -518,7 +531,7 @@ class BallMapper:
             )
             order = range(n_points)
 
-        # check wheter order is a list of lenght = len(points)
+        # check whether order is a list of lenght = len(points)
         # otherwise use the defaut ordering
         if len(np.unique(order)) != n_points:
             warnings.warn(
@@ -526,10 +539,13 @@ class BallMapper:
             )
             order = range(n_points)
 
-        # find ladmarks
+        # find landmarks
         landmarks, self.points_covered_by_landmarks, self.eps_dict = _find_landmarks(
             X, eps, orbits, metric, order, method, verbose, **kwargs
         )
+
+        # store landmarks (centers of the balls)
+        self.landmarks_data = X[landmarks.values(), :]
 
         # find edges
         if verbose:
@@ -722,6 +738,31 @@ class BallMapper:
                 to_df.append([p, ball])
 
         return pd.DataFrame(to_df, columns=["point", "ball"])
+    
+    def ball_data(self, ball_numbers):
+        """returns the data points corresponding to the specified ball numbers
+
+        Parameters
+        ----------
+        ball_numbers : list
+            list of ball numbers
+
+        Returns
+        -------
+        numpy.ndarray
+
+        """
+
+        if type(ball_numbers) is int:
+            ball_numbers = [ball_numbers]
+
+        pab = self.points_and_balls()
+        ball_data_frames = {}
+        for ball_number in ball_numbers:
+            df_of_a_ball = pd.DataFrame(X[pab[pab["ball"] == ball_numbers]["point"],:], columns=self.column_names)
+            ball_data_frames[ball_number] = df_of_a_ball
+
+        return ball_data_frames
 
     def draw_networkx(
         self,
