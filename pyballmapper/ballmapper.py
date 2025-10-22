@@ -502,6 +502,7 @@ class BallMapper:
         """
 
         self.eps = eps
+        self.X = X
 
         if column_names is not None:
             self.column_names = column_names
@@ -545,7 +546,7 @@ class BallMapper:
         )
 
         # store landmarks (centers of the balls)
-        self.landmarks_data = X[landmarks.values(), :]
+        self.landmarks_data = pd.DataFrame(X[list(landmarks.values()), :], columns=self.column_names)
 
         # find edges
         if verbose:
@@ -749,8 +750,9 @@ class BallMapper:
 
         Returns
         -------
-        numpy.ndarray
-
+        dict
+            keys: ball numbers
+            values: pandas DataFrame with the data points corresponding to the ball
         """
 
         if type(ball_numbers) is int:
@@ -759,10 +761,36 @@ class BallMapper:
         pab = self.points_and_balls()
         ball_data_frames = {}
         for ball_number in ball_numbers:
-            df_of_a_ball = pd.DataFrame(X[pab[pab["ball"] == ball_numbers]["point"],:], columns=self.column_names)
+            df_of_a_ball = pd.DataFrame(self.X[pab[pab["ball"] == ball_number]["point"],:], columns=self.column_names)
             ball_data_frames[ball_number] = df_of_a_ball
 
         return ball_data_frames
+    
+    def ball_data_index(self, ball_numbers):
+        """returns the indices of data points corresponding to the specified ball numbers
+
+        Parameters
+        ----------
+        ball_numbers : list
+            list of ball numbers
+
+        Returns
+        -------
+        dict
+            keys: ball numbers
+            values: list of indices of data points corresponding to the ball
+        """
+
+        if type(ball_numbers) is int:
+            ball_numbers = [ball_numbers]
+
+        pab = self.points_and_balls()
+        ball_points_indices_lists = {}
+        for ball_number in ball_numbers:
+            list_of_point_indices = list(pab[pab["ball"] == ball_number]["point"])
+            ball_points_indices_lists[ball_number] = list_of_point_indices
+
+        return ball_points_indices_lists
 
     def draw_networkx(
         self,
