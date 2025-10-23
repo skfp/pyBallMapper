@@ -13,10 +13,78 @@ from numba import njit
 
 import copy
 
+from typing import Tuple, Dict, List
+
+
 
 @njit
 def _euclid_distance(x, y):
     return np.linalg.norm(x - y)
+
+def _find_landmarks_deterministic_nearest_uncovered(X, eps, orbits=None, metric=None, order=None, verbose=False) -> Tuple[Dict[int, int], Dict[int, List[int]]]:
+    """
+    Constructs an epsilon-net H ⊆ X such that every point in X is within distance epsilon
+    from at least one point in H.
+    
+    Algorithm:
+    1. Initialize H with the medoid of X (point minimizing sum of distances to all others)
+    2. Iteratively add the uncovered point closest to any existing ball until all points are covered
+    
+    Parameters:
+    -----------
+    X : np.ndarray
+        Dataset of shape (n, d) where n is the number of points and d is the dimension
+    epsilon : float
+        Radius of covering balls
+    
+    Returns:
+    --------
+    net_indices : Dict[int, int]
+        Maps k ∈ {0, 1, ..., |H|-1} to the index of the k-th net point in X
+    coverage : Dict[int, List[int]]
+        Maps k ∈ {0, 1, ..., |H|-1} to the list of indices in X covered by ball B(H[k], epsilon)
+    """
+    n = X.shape[0]
+    
+    # Compute pairwise distances (can be optimized for large datasets)
+    distances = np.linalg.norm(X[:, np.newaxis, :] - X[np.newaxis, :, :], axis=2)
+    
+    # Step 1: Find medoid (point minimizing sum of distances to all other points)
+    medoid_idx = np.argmin(distances.sum(axis=1))
+    
+    # Initialize data structures
+    net_indices = {0: medoid_idx}
+    coverage = {}
+    covered = np.zeros(n, dtype=bool)
+    net_size = 1
+    
+    # Mark points covered by the medoid
+    covered_by_medoid = distances[medoid_idx] <= eps
+    covered |= covered_by_medoid
+    coverage[0] = np.where(covered_by_medoid)[0].tolist()
+    
+    # Step 2: Iteratively add uncovered points
+    while not np.all(covered):
+        uncovered_indices = np.where(~covered)[0]
+        
+        # For each uncovered point, compute minimum distance to any ball center
+        min_distances_to_net = np.min(distances[uncovered_indices][:, list(net_indices.values())], axis=1)
+        
+        # Select the uncovered point closest to any existing ball
+        closest_uncovered_local_idx = np.argmin(min_distances_to_net)
+        closest_uncovered_idx = uncovered_indices[closest_uncovered_local_idx]
+        
+        # Add this point to the epsilon-net
+        net_indices[net_size] = closest_uncovered_idx
+        
+        # Update coverage
+        newly_covered = distances[closest_uncovered_idx] <= eps
+        covered |= newly_covered
+        coverage[net_size] = np.where(newly_covered)[0].tolist()
+        
+        net_size += 1
+    
+    return net_indices, coverage, None
 
 
 def _find_landmarks_greedy(X, eps, orbits=None, metric=None, order=None, verbose=False):
@@ -388,6 +456,12 @@ def _find_landmarks(
         BallMapper graphs.
         By defaults uses the order of X.
 
+    method: string, default=None
+        The method to use for landmark selection. Options are:
+        - "nearest": deterministic method selecting the uncovered point nearest to any existing ball
+        - "adaptive": random method adjusting the radius of each ball to ensure a maximum number of points per ball
+        - "greedy": random method selecting the first uncovered point in the considered order
+
     verbose: bool or string, default=False
         Enable verbose output. Set it to 'tqdm' to show a tqdm progressbar.
 
@@ -399,25 +473,34 @@ def _find_landmarks(
     points_covered_by_landmarks: dict
         keys: landmarks ids
         values: list of ids of the points covered by the corresponding ball
-
-    
     """
 
-    if method == "adaptive":
-        landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_adaptive(
-            X=X,
-            eps=eps,
-            max_size=kwargs["max_size"],
-            eta=kwargs["eta"],
-            orbits=orbits,
-            metric=metric,
-            order=order,
-            verbose=verbose,
-        )
-    else:
-        landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
-            X, eps, orbits, metric, order, verbose
-        )
+    match method:
+        # deterministic method "nearest"
+        case "nearest":
+            landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_deterministic_nearest_uncovered(
+                X, eps, orbits, metric, order, verbose
+            )
+        # random methods "adaptive" and "greedy"
+        case "adaptive":
+            landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_adaptive(
+                X=X,
+                eps=eps,
+                max_size=kwargs["max_size"],
+                eta=kwargs["eta"],
+                orbits=orbits,
+                metric=metric,
+                order=order,
+                verbose=verbose,
+            )
+        case "greedy":
+            landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
+                X, eps, orbits, metric, order, verbose
+            )
+        case None:
+            landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
+                X, eps, orbits, metric, order, verbose
+            )
 
     return landmarks, points_covered_by_landmarks, eps_dict
 
