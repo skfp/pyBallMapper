@@ -393,13 +393,6 @@ def _find_landmarks_adaptive(
                         centers_counter += 1
                         landmarks[centers_counter] = idx_p_o
 
-                        # if verbose:
-                        #     print(
-                        #         "adding orbit landmark {} with eps {}".format(
-                        #             centers_counter, eps_o
-                        #         )
-                        #     )
-
                         # compute points_covered_by this new landmarks
                         # using the same radius as the original landmark
                         points_covered_by_landmarks[centers_counter] = []
@@ -497,6 +490,7 @@ def _find_landmarks(
             landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
                 X, eps, orbits, metric, order, verbose
             )
+        # "greedy" method is a default one when a method is not specified
         case None:
             landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
                 X, eps, orbits, metric, order, verbose
@@ -558,6 +552,7 @@ class BallMapper:
 
         column_names: list of strings, default=None
             names of the columns in X, used for labeling purposes.
+            If not given, names [x1, x2, ..., xd] assigned.
 
         Attributes
         ------------
@@ -587,6 +582,7 @@ class BallMapper:
         self.eps = eps
         self.X = X
 
+        # If column names not given, [x1, x2, ..., xd] assigned
         if column_names is not None:
             self.column_names = column_names
         else:
@@ -602,7 +598,7 @@ class BallMapper:
 
         n_points = X.shape[0]
 
-        ## convert order to a list
+        # convert order to a list
         if order == None:
             order = range(n_points)
 
