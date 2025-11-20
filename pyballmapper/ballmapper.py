@@ -834,8 +834,13 @@ class BallMapper:
             values: pandas DataFrame with the data points corresponding to the ball
         """
 
+        nodes_number = len(self.Graph.nodes)
+
         if type(ball_numbers) is int:
             ball_numbers = [ball_numbers]
+
+        if np.max(np.array(ball_numbers)) >= nodes_number:
+            raise Exception("Incorrect ball number(s). The ball numbers should be in the range [0, {}]".format(nodes_number-1))
 
         pab = self.points_and_balls()
         ball_data_frames = {}
@@ -860,8 +865,13 @@ class BallMapper:
             values: list of indices of data points corresponding to the ball
         """
 
+        nodes_number = len(self.Graph.nodes)
+
         if type(ball_numbers) is int:
             ball_numbers = [ball_numbers]
+
+        if np.max(np.array(ball_numbers)) >= nodes_number:
+            raise Exception("Incorrect ball number(s). The ball numbers should be in the range [0, {}]".format(nodes_number-1))
 
         pab = self.points_and_balls()
         ball_points_indices_lists = {}
