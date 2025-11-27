@@ -566,8 +566,7 @@ class BallMapper:
         eps: float
             The input radius of the balls.
 
-        landmarks_data: {array-like, sparse matrix} of shape (n_samples, n_features) \
-                or (n_samples, n_samples)
+        landmarks_data: {array-like, sparse matrix} of shape (len(landmarks), n_features)
             landmark points selected from the input data X
 
         points_covered_by_landmarks: dict
