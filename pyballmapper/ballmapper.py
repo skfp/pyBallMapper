@@ -486,6 +486,7 @@ def _find_landmarks(
                 order=order,
                 verbose=verbose,
             )
+        # "greedy" method chooses the next covered point randomly
         case "greedy":
             landmarks, points_covered_by_landmarks, eps_dict = _find_landmarks_greedy(
                 X, eps, orbits, metric, order, verbose
